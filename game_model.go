@@ -49,21 +49,13 @@ type GameModel struct {
 	BackgroundUUID pgtype.UUID
 }
 
-// User model for users table
-type UserModel struct {
-	ID            pgtype.Int8
-	Username      pgtype.Varchar
-	PhotoUUID     pgtype.UUID
-	Password      *string // строка для сохранения
-	Active        pgtype.Bool
-	PasswordCrypt pgtype.Bytea // внутренний хеш для проверки
-	PwdVer        pgtype.Int8
-}
-
 // ScoredUser User with score
 type ScoredUserModel struct {
-	UserModel
-	Score pgtype.Int4
+	ID        pgtype.Int8
+	Username  pgtype.Varchar
+	PhotoUUID pgtype.UUID
+	Active    pgtype.Bool
+	Score     pgtype.Int4
 }
 
 func (gs *AccessObject) GetGameBySlug(slug string) (*GameModel, error) {
@@ -86,6 +78,8 @@ func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "can not open 'GetGameTotalPlayersByID' transaction")
 	}
+
+	//nolint: errcheck
 	defer tx.Rollback()
 
 	g, err := gs.getGameImpl(tx, "slug", slug)
@@ -141,7 +135,7 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 		return nil, utils.ErrNotExists
 	}
 
-	users, err := authManager.GetUsersByIDs(context.Background(), &models.UserIDs{
+	users, err := authGPRC.GetUsersByIDs(context.Background(), &models.UserIDs{
 		IDs: IDs,
 	})
 
@@ -150,9 +144,17 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 	}
 
 	for i := 0; i < len(leaderboard); i++ {
-		leaderboard[i].Username.Set(&(users.Users[i].Username))
-		leaderboard[i].PhotoUUID.Set(&(users.Users[i].PhotoUUID))
-		leaderboard[i].Active.Set(&(users.Users[i].Active))
+		if err := leaderboard[i].Username.Set(&(users.Users[i].Username)); err != nil {
+			return nil, errors.Wrap(err, "can not set username")
+		}
+
+		if err := leaderboard[i].PhotoUUID.Set(&(users.Users[i].PhotoUUID)); err != nil {
+			return nil, errors.Wrap(err, "can not set PhotoUUID")
+		}
+
+		if err := leaderboard[i].Active.Set(&(users.Users[i].Active)); err != nil {
+			return nil, errors.Wrap(err, "can not set Active")
+		}
 	}
 
 	return leaderboard, nil
