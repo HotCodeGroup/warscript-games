@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var authManager models.AuthClient
 var logger *logrus.Logger
 
 func main() {
@@ -72,6 +73,17 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	grcpConn, err := grpc.Dial(
+		os.Getenv("GRPC_AUTH_ADDRESS"),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		log.Fatalf("cant connect to auth grpc client")
+	}
+	defer grcpConn.Close()
+
+	authManager = models.NewAuthClient(grcpConn)
 
 	r := mux.NewRouter().PathPrefix("/v1").Subrouter()
 	r.HandleFunc("/games", GetGameList).Methods("GET")

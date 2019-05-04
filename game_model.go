@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+
+	"github.com/HotCodeGroup/warscript-utils/models"
 	"github.com/HotCodeGroup/warscript-utils/utils"
 
 	"github.com/jackc/pgx/pgtype"
@@ -112,29 +115,44 @@ func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int) ([]*ScoredUserModel, error) {
 	// узнаём количество
 
-	rows, err := pgxConn.Query(`SELECT u.id, u.username, u.photo_uuid, u.active, ug.score FROM users u
-					LEFT JOIN users_games ug on u.id = ug.user_id
+	rows, err := pgxConn.Query(`SELECT ug.user_id, ug.score FROM users_games 
 					RIGHT JOIN games g on ug.game_id = g.id
 					WHERE g.slug = $1 ORDER BY ug.score DESC OFFSET $2 LIMIT $3;`, slug, offset, limit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get leaderboard error")
 	}
 	defer rows.Close()
+	IDs := make([]*models.UserID, 0)
 
 	leaderboard := make([]*ScoredUserModel, 0)
 	for rows.Next() {
 		scoredUser := &ScoredUserModel{}
-		err = rows.Scan(&scoredUser.ID, &scoredUser.Username,
-			&scoredUser.PhotoUUID, &scoredUser.Active,
-			&scoredUser.Score)
+		err = rows.Scan(&scoredUser.ID, &scoredUser.Score)
 		if err != nil {
 			return nil, errors.Wrap(err, "get leaderboard scan user error")
 		}
 		leaderboard = append(leaderboard, scoredUser)
+		IDs = append(IDs, &models.UserID{
+			ID: scoredUser.ID.Int,
+		})
 	}
 
 	if len(leaderboard) == 0 {
 		return nil, utils.ErrNotExists
+	}
+
+	users, err := authManager.GetUsersByIDs(context.Background(), &models.UserIDs{
+		IDs: IDs,
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "can't connect to auth service to get users")
+	}
+
+	for i := 0; i < len(leaderboard); i++ {
+		leaderboard[i].Username.Set(&(users.Users[i].Username))
+		leaderboard[i].PhotoUUID.Set(&(users.Users[i].PhotoUUID))
+		leaderboard[i].Active.Set(&(users.Users[i].Active))
 	}
 
 	return leaderboard, nil
