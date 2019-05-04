@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/HotCodeGroup/warscript-utils/models"
 	"github.com/HotCodeGroup/warscript-utils/utils"
 
@@ -148,8 +150,15 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 			return nil, errors.Wrap(err, "can not set username")
 		}
 
-		if err := leaderboard[i].PhotoUUID.Set([]byte(users.Users[i].PhotoUUID)); err != nil {
-			return nil, errors.Wrap(err, "can not set PhotoUUID")
+		if users.Users[i].PhotoUUID == "" {
+			leaderboard[i].PhotoUUID = pgtype.UUID{Status: pgtype.Null}
+		} else {
+			photoUUID, err := uuid.Parse(users.Users[i].PhotoUUID)
+			if err != nil {
+				return nil, errors.Wrap(err, "can not set PhotoUUID")
+			}
+
+			leaderboard[i].PhotoUUID = pgtype.UUID{Bytes: photoUUID, Status: pgtype.Present}
 		}
 
 		if err := leaderboard[i].Active.Set(&(users.Users[i].Active)); err != nil {
