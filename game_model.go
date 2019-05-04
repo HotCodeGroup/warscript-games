@@ -148,7 +148,7 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 			return nil, errors.Wrap(err, "can not set username")
 		}
 
-		if err := leaderboard[i].PhotoUUID.Set(&(users.Users[i].PhotoUUID)); err != nil {
+		if err := leaderboard[i].PhotoUUID.Set([]byte(users.Users[i].PhotoUUID)); err != nil {
 			return nil, errors.Wrap(err, "can not set PhotoUUID")
 		}
 
