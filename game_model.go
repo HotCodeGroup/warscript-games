@@ -109,7 +109,7 @@ func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int) ([]*ScoredUserModel, error) {
 	// узнаём количество
 
-	rows, err := pgxConn.Query(`SELECT ug.user_id, ug.score FROM users_games 
+	rows, err := pgxConn.Query(`SELECT ug.user_id, ug.score FROM users_games ug
 					RIGHT JOIN games g on ug.game_id = g.id
 					WHERE g.slug = $1 ORDER BY ug.score DESC OFFSET $2 LIMIT $3;`, slug, offset, limit)
 	if err != nil {
