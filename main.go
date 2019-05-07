@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/HotCodeGroup/warscript-utils/balancer"
 	"github.com/HotCodeGroup/warscript-utils/logging"
@@ -150,9 +151,11 @@ func main() {
 	r.HandleFunc("/games/{game_slug}/leaderboard", GetGameLeaderboard).Methods("GET")
 	r.HandleFunc("/games/{game_slug}/leaderboard/count", GetGameTotalPlayers).Methods("GET")
 
+	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/", middlewares.RecoverMiddleware(middlewares.AccessLogMiddleware(r, logger), logger))
+
 	logger.Infof("Games HTTP service successfully started at port %d", httpPort)
-	err = http.ListenAndServe(":"+strconv.Itoa(httpPort),
-		middlewares.RecoverMiddleware(middlewares.AccessLogMiddleware(r, logger), logger))
+	err = http.ListenAndServe(":"+strconv.Itoa(httpPort), nil)
 	if err != nil {
 		logger.Errorf("cant start main server. err: %s", err.Error())
 		return
