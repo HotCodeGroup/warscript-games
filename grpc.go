@@ -7,8 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// GamesManager реализация GRPC сервера
 type GamesManager struct{}
 
+// GetGameBySlug отдаёт информацию о игре по заданному slug
 func (gm *GamesManager) GetGameBySlug(ctx context.Context, gameSlug *models.GameSlug) (*models.InfoGame, error) {
 	game, err := getGameBySlugImpl(gameSlug.Slug)
 	if err != nil {

@@ -34,7 +34,7 @@ func init() {
 	Games = &AccessObject{}
 }
 
-// Game модель для таблицы games
+// GameModel модель для таблицы games
 type GameModel struct {
 	ID             int64
 	Slug           string
@@ -65,7 +65,7 @@ func (u *GameModel) GetBackgroundUUID() string {
 	return ""
 }
 
-// ScoredUser User with score
+// ScoredUserModel User with score
 type ScoredUserModel struct {
 	ID        int64
 	Username  string
@@ -83,6 +83,7 @@ func (u *ScoredUserModel) GetPhotoUUID() string {
 	return ""
 }
 
+// GetGameBySlug получает информацию об игре по slug
 func (gs *AccessObject) GetGameBySlug(slug string) (*GameModel, error) {
 	g, err := gs.getGameImpl(pqConn, "slug", slug)
 
@@ -97,7 +98,7 @@ func (gs *AccessObject) GetGameBySlug(slug string) (*GameModel, error) {
 	return g, nil
 }
 
-// GetGameTotalPlayersByID получение общего количества игроков
+// GetGameTotalPlayersBySlug получение общего количества игроков
 func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 	tx, err := pqConn.Begin()
 	if err != nil {
@@ -210,6 +211,7 @@ func (gs *AccessObject) GetGameList() ([]*GameModel, error) {
 func (gs *AccessObject) getGameImpl(q postgresql.Queryer, field, value string) (*GameModel, error) {
 	g := &GameModel{}
 
+	//nolint: gosec уверены в том, что field корректно, так как сами его передаём
 	row := q.QueryRow(`SELECT g.id, g.slug, g.title, g.description,
 						g.rules, g.code_example, g.bot_code, g.logo_uuid, g.background_uuid
 						FROM games g WHERE `+field+` = $1;`, value)

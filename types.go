@@ -26,6 +26,7 @@ type Game struct {
 	BackgroundUUID string `json:"background_uuid"`
 }
 
+// GameFull полная инфа об игре
 type GameFull struct {
 	Game
 	Description string `json:"description"`
