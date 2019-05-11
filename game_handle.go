@@ -4,9 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/pgtype"
-
 	"github.com/HotCodeGroup/warscript-utils/utils"
 
 	"github.com/gorilla/mux"
@@ -47,9 +44,9 @@ func GetGameList(w http.ResponseWriter, r *http.Request) {
 	respGames := make([]*Game, len(games))
 	for i, game := range games {
 		respGames[i] = &Game{
-			Slug:           game.Slug.String,
-			Title:          game.Title.String,
-			BackgroundUUID: uuid.UUID(game.BackgroundUUID.Bytes).String(), // точно 16 байт
+			Slug:           game.Slug,
+			Title:          game.Title,
+			BackgroundUUID: game.GetBackgroundUUID(), // точно 16 байт
 		}
 	}
 
@@ -84,21 +81,16 @@ func GetGameLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	leaders := make([]*ScoredUser, len(leadersModels))
 	for i, leader := range leadersModels {
-		photoUUID := ""
-		if leader.PhotoUUID.Status == pgtype.Present {
-			photoUUID = uuid.UUID(leader.PhotoUUID.Bytes).String()
-		}
-
 		leaders[i] = &ScoredUser{
 			InfoUser: InfoUser{
 				BasicUser: BasicUser{
-					Username:  leader.Username.String,
-					PhotoUUID: photoUUID,
+					Username:  leader.Username,
+					PhotoUUID: leader.GetPhotoUUID(),
 				},
-				ID:     leader.ID.Int,
-				Active: leader.Active.Bool,
+				ID:     leader.ID,
+				Active: leader.Active,
 			},
-			Score: leader.Score.Int,
+			Score: leader.Score,
 		}
 	}
 

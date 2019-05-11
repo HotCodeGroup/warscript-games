@@ -16,7 +16,6 @@ func (gm *GamesManager) GetGameBySlug(ctx context.Context, gameSlug *models.Game
 	}
 
 	return &models.InfoGame{
-		ID:             game.ID,
 		Slug:           game.Slug,
 		Title:          game.Title,
 		Description:    game.Description,

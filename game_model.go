@@ -2,24 +2,19 @@ package main
 
 import (
 	"context"
-
-	"github.com/google/uuid"
+	"database/sql"
 
 	"github.com/HotCodeGroup/warscript-utils/models"
+	"github.com/HotCodeGroup/warscript-utils/postgresql"
 	"github.com/HotCodeGroup/warscript-utils/utils"
 
-	"github.com/jackc/pgx/pgtype"
 	"github.com/pkg/errors"
 
 	// драйвер Database
-	"github.com/jackc/pgx"
+	_ "github.com/lib/pq"
 )
 
-type Queryer interface {
-	QueryRow(string, ...interface{}) *pgx.Row
-}
-
-var pgxConn *pgx.ConnPool
+var pqConn *sql.DB
 
 // GameAccessObject DAO for User model
 type GameAccessObject interface {
@@ -32,6 +27,7 @@ type GameAccessObject interface {
 // AccessObject implementation of GameAccessObject
 type AccessObject struct{}
 
+// Games interface variable for models methods
 var Games GameAccessObject
 
 func init() {
@@ -40,35 +36,62 @@ func init() {
 
 // Game модель для таблицы games
 type GameModel struct {
-	ID             pgtype.Int8
-	Slug           pgtype.Text
-	Title          pgtype.Text
-	Description    pgtype.Text
-	Rules          pgtype.Text
-	CodeExample    pgtype.Text
-	BotCode        pgtype.Text
-	LogoUUID       pgtype.UUID
-	BackgroundUUID pgtype.UUID
+	ID             int64
+	Slug           string
+	Title          string
+	Description    string
+	Rules          string
+	CodeExample    string
+	BotCode        string
+	LogoUUID       sql.NullString
+	BackgroundUUID sql.NullString
+}
+
+// GetLogoUUID возвращает LogoUUID или пустую строку, если его нет в базе
+func (u *GameModel) GetLogoUUID() string {
+	if u.LogoUUID.Valid {
+		return u.LogoUUID.String
+	}
+
+	return ""
+}
+
+// GetBackgroundUUID возвращает BackgroundUUID или пустую строку, если его нет в базе
+func (u *GameModel) GetBackgroundUUID() string {
+	if u.BackgroundUUID.Valid {
+		return u.BackgroundUUID.String
+	}
+
+	return ""
 }
 
 // ScoredUser User with score
 type ScoredUserModel struct {
-	ID        pgtype.Int8
-	Username  pgtype.Varchar
-	PhotoUUID pgtype.UUID
-	Active    pgtype.Bool
-	Score     pgtype.Int4
+	ID        int64
+	Username  string
+	PhotoUUID sql.NullString
+	Active    bool
+	Score     int32
+}
+
+// GetPhotoUUID возвращает photoUUID или пустую строку, если его нет в базе
+func (u *ScoredUserModel) GetPhotoUUID() string {
+	if u.PhotoUUID.Valid {
+		return u.PhotoUUID.String
+	}
+
+	return ""
 }
 
 func (gs *AccessObject) GetGameBySlug(slug string) (*GameModel, error) {
-	g, err := gs.getGameImpl(pgxConn, "slug", slug)
+	g, err := gs.getGameImpl(pqConn, "slug", slug)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return nil, utils.ErrNotExists
 		}
 
-		return nil, errors.Wrap(err, "get game by slug error")
+		return nil, errors.Wrapf(utils.ErrInternal, "get game by slug error: %s", err.Error())
 	}
 
 	return g, nil
@@ -76,9 +99,9 @@ func (gs *AccessObject) GetGameBySlug(slug string) (*GameModel, error) {
 
 // GetGameTotalPlayersByID получение общего количества игроков
 func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
-	tx, err := pgxConn.Begin()
+	tx, err := pqConn.Begin()
 	if err != nil {
-		return 0, errors.Wrap(err, "can not open 'GetGameTotalPlayersByID' transaction")
+		return 0, errors.Wrapf(utils.ErrInternal, "can not open GetGameTotalPlayersByID transaction: %v", err)
 	}
 
 	//nolint: errcheck
@@ -86,22 +109,22 @@ func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 
 	g, err := gs.getGameImpl(tx, "slug", slug)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return 0, utils.ErrNotExists
 		}
 
-		return 0, errors.Wrap(err, "'GetGameTotalPlayersByID' can not get game by id")
+		return 0, errors.Wrapf(utils.ErrInternal, "GetGameTotalPlayersByID can not get game by id: %v", err)
 	}
 
 	var totalPlayers int64
 	row := tx.QueryRow(`SELECT count(*) FROM users_games WHERE game_id = $1;`, &g.ID)
 	if err = row.Scan(&totalPlayers); err != nil {
-		return 0, errors.Wrap(err, "get game total players error")
+		return 0, errors.Wrapf(utils.ErrInternal, "get game total players error: %v", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return 0, errors.Wrap(err, "'GetGameTotalPlayersByID' transaction commit error")
+		return 0, errors.Wrapf(utils.ErrInternal, "can not commit GetGameTotalPlayersByID transaction: %v", err)
 	}
 
 	return totalPlayers, nil
@@ -111,25 +134,25 @@ func (gs *AccessObject) GetGameTotalPlayersBySlug(slug string) (int64, error) {
 func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int) ([]*ScoredUserModel, error) {
 	// узнаём количество
 
-	rows, err := pgxConn.Query(`SELECT ug.user_id, ug.score FROM users_games ug
+	rows, err := pqConn.Query(`SELECT ug.user_id, ug.score FROM users_games ug
 					RIGHT JOIN games g on ug.game_id = g.id
 					WHERE g.slug = $1 ORDER BY ug.score DESC OFFSET $2 LIMIT $3;`, slug, offset, limit)
 	if err != nil {
-		return nil, errors.Wrap(err, "get leaderboard error")
+		return nil, errors.Wrapf(utils.ErrInternal, "get leaderboard error: %v", err)
 	}
 	defer rows.Close()
-	IDs := make([]*models.UserID, 0)
 
+	IDs := make([]*models.UserID, 0)
 	leaderboard := make([]*ScoredUserModel, 0)
 	for rows.Next() {
 		scoredUser := &ScoredUserModel{}
 		err = rows.Scan(&scoredUser.ID, &scoredUser.Score)
 		if err != nil {
-			return nil, errors.Wrap(err, "get leaderboard scan user error")
+			return nil, errors.Wrapf(utils.ErrInternal, "get leaderboard scan user error: %v", err)
 		}
 		leaderboard = append(leaderboard, scoredUser)
 		IDs = append(IDs, &models.UserID{
-			ID: scoredUser.ID.Int,
+			ID: scoredUser.ID,
 		})
 	}
 
@@ -142,27 +165,18 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "can't connect to auth service to get users")
+		return nil, errors.Wrapf(utils.ErrInternal, "can't connect to auth service to get users error: %v", err)
 	}
 
 	for i := 0; i < len(leaderboard); i++ {
-		if err := leaderboard[i].Username.Set(&(users.Users[i].Username)); err != nil {
-			return nil, errors.Wrap(err, "can not set username")
-		}
+		leaderboard[i].Username = users.Users[i].Username
+		leaderboard[i].Active = users.Users[i].Active
 
 		if users.Users[i].PhotoUUID == "" {
-			leaderboard[i].PhotoUUID = pgtype.UUID{Status: pgtype.Null}
+			leaderboard[i].PhotoUUID.Valid = false
 		} else {
-			photoUUID, err := uuid.Parse(users.Users[i].PhotoUUID)
-			if err != nil {
-				return nil, errors.Wrap(err, "can not set PhotoUUID")
-			}
-
-			leaderboard[i].PhotoUUID = pgtype.UUID{Bytes: photoUUID, Status: pgtype.Present}
-		}
-
-		if err := leaderboard[i].Active.Set(&(users.Users[i].Active)); err != nil {
-			return nil, errors.Wrap(err, "can not set Active")
+			leaderboard[i].PhotoUUID.String = users.Users[i].PhotoUUID
+			leaderboard[i].PhotoUUID.Valid = true
 		}
 	}
 
@@ -171,11 +185,11 @@ func (gs *AccessObject) GetGameLeaderboardBySlug(slug string, limit, offset int)
 
 // GetGameList returns full list of active games
 func (gs *AccessObject) GetGameList() ([]*GameModel, error) {
-	rows, err := pgxConn.Query(`SELECT g.id, g.slug, g.title, g.description,
+	rows, err := pqConn.Query(`SELECT g.id, g.slug, g.title, g.description,
 								g.rules, g.code_example, g.bot_code, g.logo_uuid, g.background_uuid
 								FROM games g ORDER BY g.id`)
 	if err != nil {
-		return nil, errors.Wrap(err, "get game list error")
+		return nil, errors.Wrapf(utils.ErrInternal, "get game list error: %v", err)
 	}
 	defer rows.Close()
 
@@ -185,7 +199,7 @@ func (gs *AccessObject) GetGameList() ([]*GameModel, error) {
 		err = rows.Scan(&g.ID, &g.Slug, &g.Title, &g.Description,
 			&g.Rules, &g.CodeExample, &g.BotCode, &g.LogoUUID, &g.BackgroundUUID)
 		if err != nil {
-			return nil, errors.Wrap(err, "get games scan game error")
+			return nil, errors.Wrapf(utils.ErrInternal, "get games scan game error: %v", err)
 		}
 		games = append(games, g)
 	}
@@ -193,7 +207,7 @@ func (gs *AccessObject) GetGameList() ([]*GameModel, error) {
 	return games, nil
 }
 
-func (gs *AccessObject) getGameImpl(q Queryer, field, value string) (*GameModel, error) {
+func (gs *AccessObject) getGameImpl(q postgresql.Queryer, field, value string) (*GameModel, error) {
 	g := &GameModel{}
 
 	row := q.QueryRow(`SELECT g.id, g.slug, g.title, g.description,

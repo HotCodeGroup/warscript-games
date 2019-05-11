@@ -28,7 +28,6 @@ type Game struct {
 
 type GameFull struct {
 	Game
-	ID          int64
 	Description string `json:"description"`
 	Rules       string `json:"rules"`
 	CodeExample string `json:"code_example"`

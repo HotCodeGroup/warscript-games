@@ -1,2 +1,4 @@
 warscript-games
 .vscode
+coverage.out
+test.sh
