@@ -1,6 +1,6 @@
 # Warscript Games
 
-[![rcard](https://goreportcard.com/badge/github.com/HotCodeGroup/warscript-games)](https://goreportcard.com/report/github.com/HotCodeGroup/warscript-games)
+[![rcard](https://goreportcard.com/badge/github.com/HotCodeGroup/warscript-games?service=github)](https://goreportcard.com/report/github.com/HotCodeGroup/warscript-games)
 [![codecov](https://codecov.io/gh/HotCodeGroup/warscript-games/branch/master/graph/badge.svg)](https://codecov.io/gh/HotCodeGroup/warscript-games)
 
 👾 Microservice for games&amp;game-statistics
