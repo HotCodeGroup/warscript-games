@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/HotCodeGroup/warscript-games/jmodels"
 	"github.com/HotCodeGroup/warscript-utils/utils"
 
 	"github.com/gorilla/mux"
@@ -41,9 +42,9 @@ func GetGameList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respGames := make([]*Game, len(games))
+	respGames := make([]*jmodels.Game, len(games))
 	for i, game := range games {
-		respGames[i] = &Game{
+		respGames[i] = &jmodels.Game{
 			Slug:           game.Slug,
 			Title:          game.Title,
 			BackgroundUUID: game.GetBackgroundUUID(), // точно 16 байт
@@ -79,11 +80,11 @@ func GetGameLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leaders := make([]*ScoredUser, len(leadersModels))
+	leaders := make([]*jmodels.ScoredUser, len(leadersModels))
 	for i, leader := range leadersModels {
-		leaders[i] = &ScoredUser{
-			InfoUser: InfoUser{
-				BasicUser: BasicUser{
+		leaders[i] = &jmodels.ScoredUser{
+			InfoUser: jmodels.InfoUser{
+				BasicUser: jmodels.BasicUser{
 					Username:  leader.Username,
 					PhotoUUID: leader.GetPhotoUUID(),
 				},
