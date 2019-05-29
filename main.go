@@ -40,7 +40,7 @@ func deregisterService(consul *consulapi.Client, id string) {
 func main() {
 	// коннекстим логер
 	var err error
-	logger, err = logging.NewLogger(os.Stdout, os.Getenv("LOGENTRIESRUS_TOKEN"))
+	logger, err = logging.NewLogger(os.Stdout, "")
 	if err != nil {
 		log.Printf("can not create logger: %s", err)
 		return
