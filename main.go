@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/HotCodeGroup/warscript-utils/balancer"
-	"github.com/HotCodeGroup/warscript-utils/logging"
 	"github.com/HotCodeGroup/warscript-utils/middlewares"
 	"github.com/HotCodeGroup/warscript-utils/models"
 	"github.com/HotCodeGroup/warscript-utils/postgresql"
@@ -40,11 +38,9 @@ func deregisterService(consul *consulapi.Client, id string) {
 func main() {
 	// коннекстим логер
 	var err error
-	logger, err = logging.NewLogger(os.Stdout, "")
-	if err != nil {
-		log.Printf("can not create logger: %s", err)
-		return
-	}
+	logger = logrus.New()
+	logger.SetFormatter(&logrus.JSONFormatter{})
+	logger.SetOutput(os.Stdout)
 
 	// коннектим консул
 	consulConfig := consulapi.DefaultConfig()
