@@ -6,7 +6,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,6 +28,14 @@ import (
 
 var authGPRC models.AuthClient
 var logger *logrus.Logger
+
+func deregisterService(consul *consulapi.Client, id string) {
+	err := consul.Agent().ServiceDeregister(id)
+	if err != nil {
+		logger.Errorf("can not derigister %s service: %s", id, err)
+	}
+	logger.Infof("successfully derigister %s service", id)
+}
 
 func main() {
 	// коннекстим логер
@@ -98,13 +108,7 @@ func main() {
 		logger.Errorf("can not register warscript-games-http: %s", err.Error())
 		return
 	}
-	defer func() {
-		err = consul.Agent().ServiceDeregister(httpServiceID)
-		if err != nil {
-			logger.Errorf("can not derigister http service: %s", err)
-		}
-		logger.Info("successfully derigister http service")
-	}()
+	defer deregisterService(consul, httpServiceID)
 
 	// регаем grpc сервис
 	grpcServiceID := fmt.Sprintf("warscript-games-grpc:%d", grpcPort)
@@ -118,13 +122,7 @@ func main() {
 		logger.Errorf("can not register warscript-games-grpc: %s", err.Error())
 		return
 	}
-	defer func() {
-		err = consul.Agent().ServiceDeregister(grpcServiceID)
-		if err != nil {
-			logger.Errorf("can not derigister grpc service: %s", err)
-		}
-		logger.Info("successfully derigister grpc service")
-	}()
+	defer deregisterService(consul, grpcServiceID)
 
 	// стартуем свой grpc
 	games := &GamesManager{}
@@ -142,6 +140,24 @@ func main() {
 			logger.Fatalf("Games gRPC service failed at port %d", grpcPort)
 			os.Exit(1)
 		}
+	}()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Kill, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-signals
+
+		// вырубили http
+		deregisterService(consul, httpServiceID)
+		// вырубили grpc
+		deregisterService(consul, grpcServiceID)
+		// отрубили базули
+		pqConn.Close()
+		logger.Info("successfully closed warscript-users postgreSQL connection")
+
+		logger.Infof("[SIGNAL] Stopped by signal!")
+		os.Exit(0)
 	}()
 
 	// стартуем http
