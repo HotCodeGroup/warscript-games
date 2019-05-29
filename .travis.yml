@@ -9,4 +9,4 @@ before_script:
 - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 before_install:
 - openssl aes-256-cbc -K $encrypted_f00257282db3_key -iv $encrypted_f00257282db3_iv
-  -in 2019_1_HotCode_id_rsa.pem.enc -out /home/gdvfox/go/2019_1_HotCode_id_rsa.pem -d
+  -in 2019_1_HotCode_id_rsa.pem.enc -out ./2019_1_HotCode_id_rsa.pem -d
