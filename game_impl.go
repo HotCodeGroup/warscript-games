@@ -1,14 +1,16 @@
 package main
 
-func getGameBySlugImpl(slug string) (*GameFull, error) {
+import "github.com/HotCodeGroup/warscript-games/jmodels"
+
+func getGameBySlugImpl(slug string) (*jmodels.GameFull, error) {
 	game, err := Games.GetGameBySlug(slug)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &GameFull{
-		Game: Game{
+	return &jmodels.GameFull{
+		Game: jmodels.Game{
 			Slug:           game.Slug,
 			Title:          game.Title,
 			BackgroundUUID: game.GetBackgroundUUID(),

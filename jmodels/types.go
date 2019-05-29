@@ -1,4 +1,4 @@
-package main
+package jmodels
 
 // BasicUser базовые поля
 type BasicUser struct {
