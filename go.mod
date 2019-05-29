@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3
-	github.com/HotCodeGroup/warscript-utils v0.0.0-20190511125343-547128e209b6
+	github.com/HotCodeGroup/warscript-utils v0.0.0-20190525134135-f9addc69c0b4
 	github.com/go-park-mail-ru/2019_1_HotCode v0.0.0-20190426172604-1d3ce9818cea
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.1
